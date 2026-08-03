@@ -19,9 +19,14 @@ export default function OvertimeCompOff() {
     sendManagerInvite, 
     respondToInvite,
     employees,
-    contractors 
+    contractors,
+    contractorOT,
+    setContractorOT 
   } = useHRMS();
-  const { user } = useAuth();
+  const { user, workforceMode, setWorkforceMode } = useAuth();
+  const [localMode, setLocalMode] = useState(workforceMode || 'fte');
+  const switchMode = (m) => { setLocalMode(m); setWorkforceMode(m); };
+  const showContractorOT = localMode === 'contractor' && ['Operational HR', 'Manager'].includes(user.role);
 
   const [activeTab, setActiveTab] = useState('ot'); // 'ot' or 'comp-off'
 

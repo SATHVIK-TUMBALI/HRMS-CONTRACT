@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useHRMS } from '../context/HRMSContext';
 import { useAuth } from '../context/AuthContext';
+import { useLocation } from 'react-router-dom';
 import { Wallet, Play, CheckCircle2, FileDown, Eye, Calculator, ArrowRight, Search, Plus, Trash, HelpCircle, Download } from 'lucide-react';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
@@ -22,8 +23,10 @@ export default function Payroll() {
     adminConfigs 
   } = useHRMS();
   const { user } = useAuth();
+  const location = useLocation();
+  const queryTab = new URLSearchParams(location.search).get('tab');
 
-  const [activeTab, setActiveTab] = useState('regular'); // 'regular', 'offcycle', 'contractors', 'loans', 'compliance'
+  const [activeTab, setActiveTab] = useState(queryTab || 'regular'); // 'regular', 'offcycle', 'contractors', 'loans', 'compliance'
   const [payrollStatus, setPayrollStatus] = useState('Pending Simulation'); // Pending Simulation, Simulated, Executed
   const [simulationSummary, setSimulationSummary] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -32,6 +35,9 @@ export default function Payroll() {
   const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [individualRuns, setIndividualRuns] = useState({}); // e.g. { 'EMP-108': 'Simulated' }
+  const [payrollMode, setPayrollMode] = useState('fte'); // 'fte' | 'contract'
+  const [contractorSearch, setContractorSearch] = useState('');
+  const [contractorIndividualStatus, setContractorIndividualStatus] = useState({});
 
   // Off-cycle form states
   const [isOffcycleModalOpen, setIsOffcycleModalOpen] = useState(false);
@@ -225,15 +231,17 @@ export default function Payroll() {
             Process regular/off-cycle payrolls, generate multi-bank NEFT/RTGS files, and track statutory compliance in Rupees (₹).
           </p>
         </div>
-        {isFinanceHR && (
+        {(isFinanceHR || user.role === 'Operational HR') && (
           <div className="flex gap-2">
-            <button
-              onClick={handleGenerateNEFT}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-slate-50 hover:bg-slate-100 border rounded-lg text-slate-700 dark:bg-slate-900 dark:text-slate-350 cursor-pointer"
-            >
-              <Download size={14} />
-              Export NEFT RTGS File
-            </button>
+            {isFinanceHR && (
+              <button
+                onClick={handleGenerateNEFT}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-slate-50 hover:bg-slate-100 border rounded-lg text-slate-700 dark:bg-slate-900 dark:text-slate-350 cursor-pointer"
+              >
+                <Download size={14} />
+                Export NEFT RTGS File
+              </button>
+            )}
             <button
               onClick={() => setIsOffcycleModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-primary text-white dark:bg-accent dark:text-slate-950 rounded-lg cursor-pointer"
@@ -246,271 +254,500 @@ export default function Payroll() {
       </div>
 
       {/* Tabs */}
-      {isFinanceHR && (
+      {['HR', 'Finance HR', 'Operational HR'].includes(user.role) && (
         <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-2.5 overflow-x-auto">
-          {['regular', 'offcycle', 'contractors', 'loans', 'compliance'].map(t => (
-            <button
-              key={t}
-              onClick={() => setActiveTab(t)}
-              className={`py-1.5 px-3.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
-                activeTab === t
-                  ? 'bg-primary text-white dark:bg-accent dark:text-slate-950'
-                  : 'bg-slate-50 text-slate-500 hover:bg-slate-100 dark:bg-slate-900/40 dark:text-slate-400'
-              }`}
-            >
-              {t === 'regular' ? 'Regular FTE Run' :
-               t === 'offcycle' ? 'Off-Cycle Runs' :
-               t === 'contractors' ? 'Contractor Billing' :
-               t === 'loans' ? 'Loans & Advances' : 'Statutory & Gratuity'}
-            </button>
-          ))}
+          {['regular', 'offcycle', 'contractors', 'loans', 'compliance']
+            .filter(t => {
+              if (user.role === 'Operational HR') {
+                return ['offcycle', 'contractors'].includes(t);
+              }
+              return true;
+            })
+            .map(t => (
+              <button
+                key={t}
+                onClick={() => setActiveTab(t)}
+                className={`py-1.5 px-3.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                  activeTab === t
+                    ? 'bg-primary text-white dark:bg-accent dark:text-slate-950'
+                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100 dark:bg-slate-900/40 dark:text-slate-400'
+                }`}
+              >
+                {t === 'regular' ? 'Payroll Run' :
+                 t === 'offcycle' ? 'Off-Cycle Runs' :
+                 t === 'contractors' ? 'Contractor Billing' :
+                 t === 'loans' ? 'Loans & Advances' : 'Statutory & Gratuity'}
+              </button>
+            ))}
         </div>
       )}
 
       {/* REGULAR PAYROLL TAB OR EMPLOYEE VIEW */}
       {isFinanceHR && activeTab === 'regular' && (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Controls Card */}
-            <Card className="p-5 lg:col-span-1 space-y-4">
-              <div>
-                <h3 className="font-bold text-sm text-slate-800 dark:text-white">Active Payroll Cycle</h3>
-                <span className="text-[10px] text-slate-400 font-semibold">Cycle: July 2026</span>
-              </div>
-              
-              <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-2 border border-slate-100 dark:border-slate-800 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Current Status:</span>
-                  <span className="font-bold text-primary dark:text-accent uppercase tracking-wider text-[10px]">
-                    {payrollStatus}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Eligible Employees:</span>
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">
-                    {employees.filter(e => e.status === 'Active').length} Active
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-2">
-                {payrollStatus === 'Pending Simulation' && (
-                  <Button
-                    onClick={runSimulation}
-                    disabled={loading}
-                    variant="primary"
-                    className="w-full"
-                    icon={Calculator}
-                  >
-                    {loading ? 'Simulating calculations...' : 'Run Payroll Simulation'}
-                  </Button>
-                )}
-                {payrollStatus === 'Simulated' && (
-                  <>
-                    <Button
-                      onClick={executePayrollRun}
-                      disabled={loading}
-                      variant="primary"
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                      icon={CheckCircle2}
-                    >
-                      {loading ? 'Disbursing funds...' : 'Approve & Disburse Payroll'}
-                    </Button>
-                    <Button
-                      onClick={() => setPayrollStatus('Pending Simulation')}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      Reset Run
-                    </Button>
-                  </>
-                )}
-                {payrollStatus === 'Executed' && (
-                  <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 text-center rounded-xl border border-emerald-250 dark:border-emerald-900/40 text-xs font-semibold space-y-1">
-                    <CheckCircle2 className="mx-auto text-emerald-500 mb-1" size={24} />
-                    <p>Payroll Run Complete</p>
-                    <span className="text-[10px] text-slate-450 font-normal">Disbursed on {new Date().toLocaleDateString()}</span>
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Simulation Output Card */}
-            <Card className="p-5 lg:col-span-2 flex flex-col justify-between">
-              <div>
-                <h3 className="font-bold text-sm text-slate-800 dark:text-white">Simulation Ledger Output</h3>
-                <span className="text-[10px] text-slate-400 font-semibold">Projected payroll cycle budgets (FTEs)</span>
-              </div>
-
-              {simulationSummary ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4 text-xs">
-                  <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-1.5 border border-slate-100 dark:border-slate-800 text-left">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold">Gross Salaries</span>
-                    <strong className="text-xl font-bold text-slate-850 dark:text-slate-100 block">
-                      ₹{simulationSummary.gross.toLocaleString([], { maximumFractionDigits: 0 })}
-                    </strong>
-                    <span className="text-[10px] text-slate-455 block">Monthly operational salary cost</span>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-1.5 border border-slate-100 dark:border-slate-800 text-left">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold">PF Contribution (12%)</span>
-                    <strong className="text-xl font-bold text-slate-850 dark:text-slate-100 block">
-                      ₹{simulationSummary.pf.toLocaleString([], { maximumFractionDigits: 0 })}
-                    </strong>
-                    <span className="text-[10px] text-slate-455 block">Provident fund corporate matches</span>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-1.5 border border-slate-100 dark:border-slate-800 text-left">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold">Estimated TDS/Tax (15%)</span>
-                    <strong className="text-xl font-bold text-slate-850 dark:text-slate-100 block">
-                      ₹{simulationSummary.tax.toLocaleString([], { maximumFractionDigits: 0 })}
-                    </strong>
-                    <span className="text-[10px] text-slate-455 block">Statutory withholding taxes</span>
-                  </div>
-
-                  <div className="p-4 bg-primary/5 dark:bg-accent/5 rounded-xl space-y-1.5 border border-primary/20 dark:border-accent/20 text-left">
-                    <span className="text-[10px] text-primary dark:text-accent uppercase font-bold">Total Net Pay (Disbursed)</span>
-                    <strong className="text-xl font-extrabold text-primary dark:text-accent block">
-                      ₹{simulationSummary.net.toLocaleString([], { maximumFractionDigits: 0 })}
-                    </strong>
-                    <span className="text-[10px] text-slate-455 block">Net bank transfer budget amount</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="py-12 text-center text-slate-400 text-xs font-semibold">
-                  No active calculations to display. Run simulation.
-                </div>
-              )}
-              
-              <div className="text-[10px] text-slate-400 text-right mt-2 font-semibold">
-                Statutory Compliance: PF Act 1952 &bull; Income Tax Act 1961
-              </div>
-            </Card>
+        <div className="space-y-6">
+          {/* Sub-toggle for FTE vs Contractor Run */}
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit gap-1 text-xs">
+            <button
+              onClick={() => setPayrollMode('fte')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                payrollMode === 'fte'
+                  ? 'bg-white text-slate-850 shadow-xs dark:bg-slate-900 dark:text-white'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+              }`}
+            >
+              FTE Payroll Run
+            </button>
+            <button
+              onClick={() => setPayrollMode('contract')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                payrollMode === 'contract'
+                  ? 'bg-white text-slate-850 shadow-xs dark:bg-slate-900 dark:text-white'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+              }`}
+            >
+              Contract Payroll Run
+            </button>
           </div>
 
-          {/* Individual Employee payroll list */}
-          <Card className="p-5 mt-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-              <div>
-                <h3 className="font-bold text-sm text-slate-800 dark:text-white">Individual Employee Payroll Runs</h3>
-                <span className="text-[10px] text-slate-400 font-semibold">Search personnel to simulate, run, and view individual payslips</span>
-              </div>
-              
-              <div className="relative w-full sm:w-64">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
-                  <Search size={14} />
-                </span>
-                <input
-                  type="text"
-                  placeholder="Search by ID or name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-lg dark:text-slate-200 focus:outline-hidden"
-                />
-              </div>
-            </div>
+          {payrollMode === 'fte' ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Controls Card */}
+              <Card className="p-5 lg:col-span-1 space-y-4">
+                <div>
+                  <h3 className="font-bold text-sm text-slate-800 dark:text-white">Active Payroll Cycle</h3>
+                  <span className="text-[10px] text-slate-400 font-semibold">Cycle: July 2026</span>
+                </div>
+                
+                <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-2 border border-slate-100 dark:border-slate-800 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Current Status:</span>
+                    <span className="font-bold text-primary dark:text-accent uppercase tracking-wider text-[10px]">
+                      {payrollStatus}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Eligible Employees:</span>
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">
+                      {employees.filter(e => e.status === 'Active').length} Active
+                    </span>
+                  </div>
+                </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left border-collapse">
-                <thead className="bg-slate-50 dark:bg-slate-900/50 text-[10px] text-slate-455 uppercase font-bold tracking-wider border-b border-slate-200 dark:border-slate-800">
-                  <tr>
-                    <th className="px-4 py-3">Employee ID</th>
-                    <th className="px-4 py-3">Name</th>
-                    <th className="px-4 py-3">Department</th>
-                    <th className="px-4 py-3">Annual CTC</th>
-                    <th className="px-4 py-3">Monthly Net</th>
-                    <th className="px-4 py-3">Run Status</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-850 text-slate-650 dark:text-slate-400 font-medium">
-                  {employees
-                    .filter(e => {
-                      const matchesSearch = e.name.toLowerCase().includes(searchQuery.toLowerCase()) || e.id.toLowerCase().includes(searchQuery.toLowerCase());
-                      return e.status === 'Active' && matchesSearch;
-                    })
-                    .map(emp => {
-                      const empGross = emp.salary ? (emp.salary / 12) : 5000;
-                      const empPf = empGross * 0.12;
-                      const empTax = empGross * 0.15;
-                      const empNet = empGross - empPf - empTax;
-                      const runState = individualRuns[emp.id] || 'Pending Simulation';
+                <div className="space-y-2 pt-2">
+                  {payrollStatus === 'Pending Simulation' && (
+                    <Button
+                      onClick={runSimulation}
+                      disabled={loading}
+                      variant="primary"
+                      className="w-full"
+                      icon={Calculator}
+                    >
+                      {loading ? 'Simulating calculations...' : 'Run Payroll Simulation'}
+                    </Button>
+                  )}
+                  {payrollStatus === 'Simulated' && (
+                    <>
+                      <Button
+                        onClick={executePayrollRun}
+                        disabled={loading}
+                        variant="primary"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                        icon={CheckCircle2}
+                      >
+                        {loading ? 'Disbursing funds...' : 'Approve & Disburse Payroll'}
+                      </Button>
+                      <Button
+                        onClick={() => setPayrollStatus('Pending Simulation')}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        Reset Run
+                      </Button>
+                    </>
+                  )}
+                  {payrollStatus === 'Executed' && (
+                    <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 text-center rounded-xl border border-emerald-250 dark:border-emerald-900/40 text-xs font-semibold space-y-1">
+                      <CheckCircle2 className="mx-auto text-emerald-500 mb-1" size={24} />
+                      <p>Payroll Run Complete</p>
+                      <span className="text-[10px] text-slate-450 font-normal">Disbursed on {new Date().toLocaleDateString()}</span>
+                    </div>
+                  )}
+                </div>
+              </Card>
 
-                      return (
-                        <tr key={emp.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
-                          <td className="px-4 py-3 font-mono font-bold text-slate-900 dark:text-white">{emp.id}</td>
-                          <td className="px-4 py-3 font-bold text-slate-800 dark:text-slate-200">{emp.name}</td>
-                          <td className="px-4 py-3">{emp.department}</td>
-                          <td className="px-4 py-3">₹{emp.salary ? emp.salary.toLocaleString() : '0'}/yr</td>
-                          <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300">₹{empNet.toLocaleString([], { maximumFractionDigits: 0 })}</td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-bold uppercase ${
-                              runState === 'Executed'
-                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400'
-                                : runState === 'Simulated'
-                                ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400'
-                                : 'bg-slate-100 text-slate-550 dark:bg-slate-900 dark:text-slate-450'
-                            }`}>
-                              {runState}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex justify-end gap-1.5">
-                              {runState === 'Pending Simulation' && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    setIndividualRuns(prev => ({ ...prev, [emp.id]: 'Simulated' }));
-                                    toast.success(`Payroll simulated for ${emp.name}.`);
-                                  }}
-                                >
-                                  Simulate
-                                </Button>
-                              )}
-                              {runState === 'Simulated' && (
-                                <Button
-                                  size="sm"
-                                  variant="primary"
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                                  onClick={() => {
-                                    setIndividualRuns(prev => ({ ...prev, [emp.id]: 'Executed' }));
-                                    toast.success(`Payroll processed & disbursed for ${emp.name}.`);
-                                  }}
-                                >
-                                  Disburse
-                                </Button>
-                              )}
-                              {runState === 'Executed' && (
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  icon={Eye}
-                                  onClick={() => {
-                                    setSelectedPayslipEmp(emp);
-                                    setSelectedPayslip({
-                                      id: `PAY-${emp.id}-${Date.now().toString().slice(-4)}`,
-                                      period: 'July 2026',
-                                      gross: empGross,
-                                      net: empNet,
-                                      status: 'Paid',
-                                      date: new Date().toLocaleDateString()
-                                    });
-                                    setIsPayslipModalOpen(true);
-                                  }}
-                                >
-                                  View Payslip
-                                </Button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
+              {/* Simulation Output Card */}
+              <Card className="p-5 lg:col-span-2 space-y-4">
+                <div>
+                  <h3 className="font-bold text-sm text-slate-800 dark:text-white">FTE Payroll Simulation Statement</h3>
+                  <span className="text-[10px] text-slate-400 font-semibold">Consolidated ledger statement before final approval</span>
+                </div>
+
+                {payrollStatus !== 'Pending Simulation' && simulationSummary ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-1.5 border border-slate-100 dark:border-slate-800 text-left text-xs">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold">Total Gross Payroll</span>
+                      <strong className="text-xl font-bold text-slate-850 dark:text-slate-100 block">
+                        ₹{simulationSummary.gross.toLocaleString([], { maximumFractionDigits: 0 })}
+                      </strong>
+                      <span className="text-[10px] text-slate-455 block">Accumulated gross monthly salary</span>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-1.5 border border-slate-100 dark:border-slate-800 text-left text-xs">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold">Total EPF Contribution</span>
+                      <strong className="text-xl font-bold text-slate-855 dark:text-slate-100 block">
+                        ₹{simulationSummary.pf.toLocaleString([], { maximumFractionDigits: 0 })}
+                      </strong>
+                      <span className="text-[10px] text-slate-455 block">Corporate matching EPF budget</span>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-1.5 border border-slate-100 dark:border-slate-800 text-left text-xs">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold">Income Tax (TDS) Est.</span>
+                      <strong className="text-xl font-bold text-slate-855 dark:text-slate-100 block">
+                        ₹{simulationSummary.tax.toLocaleString([], { maximumFractionDigits: 0 })}
+                      </strong>
+                      <span className="text-[10px] text-slate-455 block">Statutory withholding taxes</span>
+                    </div>
+
+                    <div className="p-4 bg-primary/5 dark:bg-accent/5 rounded-xl space-y-1.5 border border-primary/20 dark:border-accent/20 text-left text-xs">
+                      <span className="text-[10px] text-primary dark:text-accent uppercase font-bold">Total Net Pay (Disbursed)</span>
+                      <strong className="text-xl font-extrabold text-primary dark:text-accent block">
+                        ₹{simulationSummary.net.toLocaleString([], { maximumFractionDigits: 0 })}
+                      </strong>
+                      <span className="text-[10px] text-slate-455 block">Net bank transfer budget amount</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-12 text-center text-slate-400 text-xs font-semibold">
+                    No active calculations to display. Run simulation.
+                  </div>
+                )}
+                
+                <div className="text-[10px] text-slate-400 text-right mt-2 font-semibold">
+                  Statutory Compliance: PF Act 1952 &bull; Income Tax Act 1961
+                </div>
+              </Card>
+
+              {/* Individual Employee payroll list */}
+              <Card className="p-5 lg:col-span-3 mt-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-800 dark:text-white">Individual Employee Payroll Runs</h3>
+                    <span className="text-[10px] text-slate-400 font-semibold">Search personnel to simulate, run, and view individual payslips</span>
+                  </div>
+                  
+                  <div className="relative w-full sm:w-64">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
+                      <Search size={14} />
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Search by ID or name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.value || e.target.value)}
+                      className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-lg dark:text-slate-200 focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-[10px] text-slate-455 uppercase font-bold tracking-wider border-b border-slate-200 dark:border-slate-800">
+                      <tr>
+                        <th className="px-4 py-3">Employee ID</th>
+                        <th className="px-4 py-3">Name</th>
+                        <th className="px-4 py-3">Department</th>
+                        <th className="px-4 py-3">Annual CTC</th>
+                        <th className="px-4 py-3">Monthly Net</th>
+                        <th className="px-4 py-3">Run Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-855 text-slate-650 dark:text-slate-400 font-medium">
+                      {employees
+                        .filter(e => {
+                          const matchesSearch = e.name.toLowerCase().includes(searchQuery.toLowerCase()) || e.id.toLowerCase().includes(searchQuery.toLowerCase());
+                          return e.status === 'Active' && matchesSearch;
+                        })
+                        .map(emp => {
+                          const empGross = emp.salary ? (emp.salary / 12) : 5000;
+                          const empPf = empGross * 0.12;
+                          const empTax = empGross * 0.15;
+                          const empNet = empGross - empPf - empTax;
+                          const runState = individualRuns[emp.id] || 'Pending Simulation';
+
+                          return (
+                            <tr key={emp.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
+                              <td className="px-4 py-3 font-mono font-bold text-slate-900 dark:text-white">{emp.id}</td>
+                              <td className="px-4 py-3 font-bold text-slate-800 dark:text-slate-200">{emp.name}</td>
+                              <td className="px-4 py-3">{emp.department}</td>
+                              <td className="px-4 py-3">₹{emp.salary ? emp.salary.toLocaleString() : '0'}/yr</td>
+                              <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300">₹{empNet.toLocaleString([], { maximumFractionDigits: 0 })}</td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-bold uppercase ${
+                                  runState === 'Executed'
+                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400'
+                                    : runState === 'Simulated'
+                                    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400'
+                                    : 'bg-slate-100 text-slate-550 dark:bg-slate-900 dark:text-slate-450'
+                                }`}>
+                                  {runState}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex justify-end gap-1.5">
+                                  {runState === 'Pending Simulation' && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        setIndividualRuns(prev => ({ ...prev, [emp.id]: 'Simulated' }));
+                                        toast.success(`Payroll simulated for ${emp.name}.`);
+                                      }}
+                                    >
+                                      Simulate
+                                    </Button>
+                                  )}
+                                  {runState === 'Simulated' && (
+                                    <Button
+                                      size="sm"
+                                      variant="primary"
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                      onClick={() => {
+                                        setIndividualRuns(prev => ({ ...prev, [emp.id]: 'Executed' }));
+                                        toast.success(`Payroll processed & disbursed for ${emp.name}.`);
+                                      }}
+                                    >
+                                      Disburse
+                                    </Button>
+                                  )}
+                                  {runState === 'Executed' && (
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      icon={Eye}
+                                      onClick={() => {
+                                        setSelectedPayslipEmp(emp);
+                                        setSelectedPayslip({
+                                          id: `PAY-${emp.id}-${Date.now().toString().slice(-4)}`,
+                                          period: 'July 2026',
+                                          gross: empGross,
+                                          net: empNet,
+                                          status: 'Paid',
+                                          date: new Date().toLocaleDateString()
+                                        });
+                                        setIsPayslipModalOpen(true);
+                                      }}
+                                    >
+                                      View Payslip
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             </div>
-          </Card>
-        </>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-xs text-left animate-fade-in">
+              {/* Left Controls Card */}
+              <Card className="p-5 lg:col-span-1 space-y-4">
+                <div>
+                  <h3 className="font-bold text-sm text-slate-800 dark:text-white">Contract Payroll Cycle</h3>
+                  <span className="text-[10px] text-slate-400 font-semibold">Active Cycle: July 2026</span>
+                </div>
+                
+                <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-2 border border-slate-100 dark:border-slate-800">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Current Status:</span>
+                    <span className="font-bold text-primary dark:text-accent uppercase tracking-wider text-[10px]">
+                      {contractorRunState}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Total Contractors:</span>
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">
+                      {contractors.length} Active
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bulk Attendance File Upload */}
+                <div className="flex flex-col text-left space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <label className="text-[10px] font-bold text-slate-455 uppercase">Bulk Attendance CSV Upload</label>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => {
+                      if (e.target.files.length > 0) {
+                        setContractorFile(e.target.files[0]);
+                        toast.success(`Contractor CSV Upload Staged: ${e.target.files[0].name}`);
+                      }
+                    }}
+                    className="text-xs border p-2 rounded-lg bg-white dark:bg-slate-900 dark:border-slate-850"
+                  />
+                  {contractorFile && (
+                    <p className="text-[10px] text-emerald-600 font-semibold mt-1">✓ File ready for simulation run</p>
+                  )}
+                </div>
+
+                {/* Bulk Actions */}
+                <div className="space-y-2 pt-2">
+                  {contractorRunState === 'Pending Run' && (
+                    <Button
+                      onClick={() => {
+                        setLoading(true);
+                        setTimeout(() => {
+                          setContractorRunState('Simulated');
+                          setLoading(false);
+                          toast.success('Contractor bulk hours billing simulated.');
+                        }, 800);
+                      }}
+                      variant="primary"
+                      className="w-full"
+                      disabled={loading}
+                    >
+                      {loading ? 'Running simulation...' : 'Simulate Bulk Contractor Payouts'}
+                    </Button>
+                  )}
+                  {contractorRunState === 'Simulated' && (
+                    <>
+                      <Button
+                        onClick={() => {
+                          setLoading(true);
+                          setTimeout(() => {
+                            setContractorRunState('Paid');
+                            setLoading(false);
+                            toast.success('Contractor invoices processed and payouts initiated!');
+                          }, 800);
+                        }}
+                        variant="primary"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                        disabled={loading}
+                      >
+                        {loading ? 'Disbursing payouts...' : 'Approve & Disburse Contractor Payouts'}
+                      </Button>
+                      <Button
+                        onClick={() => setContractorRunState('Pending Run')}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        Reset Run
+                      </Button>
+                    </>
+                  )}
+                  {contractorRunState === 'Paid' && (
+                    <div className="space-y-2">
+                      <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 rounded-lg text-center font-bold text-xs border border-emerald-250">
+                        Bulk Payout Complete
+                      </div>
+                      <Button
+                        onClick={() => toast.success('Bulk payslips downloaded for all contractors!')}
+                        variant="secondary"
+                        className="w-full flex items-center justify-center gap-1.5"
+                      >
+                        <Download size={14} /> Download Bulk Payslips
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              {/* Roster & Individual Search Card */}
+              <Card className="p-5 lg:col-span-2 space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-800 dark:text-white">Contractor Billing Roster</h3>
+                    <span className="text-[10px] text-slate-400 font-semibold">Search, process individual runs, and retrieve contractor payslips</span>
+                  </div>
+                  <div className="w-full sm:w-48">
+                    <input
+                      type="text"
+                      placeholder="Search contractors..."
+                      value={contractorSearch}
+                      onChange={(e) => setContractorSearch(e.target.value)}
+                      className="text-xs py-1.5 px-3 border dark:border-slate-800 rounded bg-white dark:bg-slate-955 dark:text-slate-350 w-full"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-[10px] text-slate-455 uppercase font-bold tracking-wider border-b border-slate-200 dark:border-slate-800">
+                      <tr>
+                        <th className="px-3 py-2.5">ID</th>
+                        <th className="px-3 py-2.5">Contractor</th>
+                        <th className="px-3 py-2.5">Agency</th>
+                        <th className="px-3 py-2.5">Rate/Hr</th>
+                        <th className="px-3 py-2.5">Hours</th>
+                        <th className="px-3 py-2.5">Total Pay</th>
+                        <th className="px-3 py-2.5">Status</th>
+                        <th className="px-3 py-2.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-855">
+                      {contractors
+                        .filter(c => c.name.toLowerCase().includes(contractorSearch.toLowerCase()) || c.agency.toLowerCase().includes(contractorSearch.toLowerCase()))
+                        .map(c => {
+                          const billHours = c.hoursWorked || 160;
+                          const billAmount = c.ratePerHour * billHours;
+                          const individualPaid = contractorIndividualStatus[c.id] === 'Paid' || contractorRunState === 'Paid';
+                          const individualSimulated = contractorRunState === 'Simulated';
+                          
+                          return (
+                            <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
+                              <td className="px-3 py-2.5 font-mono font-bold text-slate-900 dark:text-white">{c.id}</td>
+                              <td className="px-3 py-2.5 font-bold text-slate-800 dark:text-slate-200">{c.name}</td>
+                              <td className="px-3 py-2.5 text-slate-550">{c.agency}</td>
+                              <td className="px-3 py-2.5 font-mono">₹{c.ratePerHour}/hr</td>
+                              <td className="px-3 py-2.5 font-mono">{billHours} hrs</td>
+                              <td className="px-3 py-2.5 font-bold text-slate-700 dark:text-slate-300">₹{billAmount.toLocaleString()}</td>
+                              <td className="px-3 py-2.5">
+                                <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-bold uppercase ${
+                                  individualPaid
+                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400'
+                                    : individualSimulated
+                                    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400'
+                                    : 'bg-slate-100 text-slate-550 dark:bg-slate-900 dark:text-slate-455'
+                                }`}>
+                                  {individualPaid ? 'Paid' : individualSimulated ? 'Simulated' : 'Pending'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 text-right">
+                                <div className="flex justify-end gap-1.5">
+                                  {!individualPaid && (
+                                    <button
+                                      onClick={() => {
+                                        setContractorIndividualStatus(prev => ({ ...prev, [c.id]: 'Paid' }));
+                                        toast.success(`Payroll processed & disbursed for ${c.name}.`);
+                                      }}
+                                      className="px-2 py-0.5 text-[9px] font-bold text-white bg-primary dark:bg-accent dark:text-slate-950 rounded-md cursor-pointer"
+                                      title="Run individual payroll"
+                                    >
+                                      Run
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => toast.success(`Downloaded payslip for ${c.name}`)}
+                                    className="p-1 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 cursor-pointer"
+                                    title="Download individual payslip"
+                                  >
+                                    <Download size={12} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
       )}
 
       {/* OFF-CYCLE RUNS TAB */}

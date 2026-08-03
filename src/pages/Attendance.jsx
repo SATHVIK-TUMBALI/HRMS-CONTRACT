@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { useHRMS } from '../context/HRMSContext';
 import { useAuth } from '../context/AuthContext';
-import { Clock, Calendar, Search, CheckCircle, ShieldAlert, Award, FileText } from 'lucide-react';
+import { Clock, Calendar, Search, CheckCircle, ShieldAlert, Award, FileText, Upload, Users } from 'lucide-react';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import { toast } from 'react-hot-toast';
 
 export default function Attendance() {
-  const { attendance, employees, holidays, overwriteAttendance } = useHRMS();
-  const { user } = useAuth();
+  const { attendance, employees, holidays, overwriteAttendance, contractors, contractorAttendance, setContractorAttendance } = useHRMS();
+  const { user, workforceMode, setWorkforceMode } = useAuth();
+  const [localMode, setLocalMode] = useState(workforceMode || 'fte');
+  const switchMode = (m) => { setLocalMode(m); setWorkforceMode(m); };
 
   const getInitialSearchEmp = () => {
     if (!user) return '';
@@ -73,9 +75,10 @@ export default function Attendance() {
       toast.error('Please specify a valid Employee ID.');
       return;
     }
-    const empExists = employees.some(emp => emp.id.toLowerCase() === overwriteEmpId.trim().toLowerCase());
+    const empExists = employees.some(emp => emp.id.toLowerCase() === overwriteEmpId.trim().toLowerCase())
+      || contractors.some(c => c.id.toLowerCase() === overwriteEmpId.trim().toLowerCase());
     if (!empExists) {
-      toast.error(`Employee ID "${overwriteEmpId}" not found in corporate records.`);
+      toast.error(`Employee/Contractor ID "${overwriteEmpId}" not found.`);
       return;
     }
     overwriteAttendance(
@@ -86,18 +89,109 @@ export default function Attendance() {
       overwriteStatus,
       overwriteReason
     );
-    toast.success(`Manual override applied successfully for employee ${overwriteEmpId.trim().toUpperCase()}.`);
+    toast.success(`Manual override applied successfully for ${overwriteEmpId.trim().toUpperCase()}.`);
+  };
+
+  // Contractor attendance view for Operational HR / Manager
+  const showContractorMode = localMode === 'contractor' && ['Operational HR', 'Manager'].includes(user.role);
+  const todayContractorAtt = contractorAttendance.filter(a => a.date === '2026-07-30');
+  const contractorWithAtt = contractors.map(c => {
+    const att = todayContractorAtt.find(a => a.empId === c.id);
+    return { ...c, checkIn: att?.checkIn || '--', checkOut: att?.checkOut || '--', hours: att?.hoursWorked || 0, attStatus: att?.status || 'Not Marked', site: att?.site || c.site };
+  });
+
+  const handleBulkContractorAtt = () => {
+    const today = '2026-07-30';
+    const newLogs = contractors.filter(c => c.status === 'Active').map((c, i) => ({
+      id: `CATT-BULK-${i}`, empId: c.id, date: today, checkIn: '09:00 AM', checkOut: '06:00 PM', hoursWorked: 9, status: 'Present', site: c.site, markedBy: 'Operational HR'
+    }));
+    setContractorAttendance(prev => [
+      ...prev.filter(a => a.date !== today),
+      ...newLogs
+    ]);
+    toast.success('Bulk contractor attendance marked for today!');
   };
 
   return (
     <div className="space-y-6 text-left">
       {/* Page Header */}
-      <div>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Corporate Attendance & Time Calendar</h2>
-        <p className="text-xs text-slate-400 dark:text-slate-500 font-semibold mt-0.5">
-          View monthly attendance rosters and process manual timing corrections for biometric overrides.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Corporate Attendance &amp; Time Calendar</h2>
+          <p className="text-xs text-slate-400 dark:text-slate-500 font-semibold mt-0.5">
+            View monthly attendance rosters and process manual timing corrections for biometric overrides.
+          </p>
+        </div>
+
+        {/* FTE / Contractor Toggle */}
+        {['Operational HR', 'Manager'].includes(user.role) && (
+          <div className="flex bg-slate-100 dark:bg-slate-800 rounded-full p-0.5 gap-1 self-start">
+            <button onClick={() => switchMode('fte')}
+              className={`px-4 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider cursor-pointer transition-all ${localMode === 'fte' ? 'bg-primary text-white dark:bg-accent dark:text-slate-950' : 'text-slate-500 hover:text-slate-700'}`}>
+              FTE
+            </button>
+            <button onClick={() => switchMode('contractor')}
+              className={`px-4 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider cursor-pointer transition-all ${localMode === 'contractor' ? 'bg-primary text-white dark:bg-accent dark:text-slate-950' : 'text-slate-500 hover:text-slate-700'}`}>
+              Contractors
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Contractor Attendance View */}
+      {showContractorMode && (
+        <div className="space-y-4">
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+              <div>
+                <h4 className="font-extrabold text-sm text-slate-800 dark:text-white">Contractor Attendance — July 30, 2026</h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">Attendance marked by Operational HR. Edit individual records below.</p>
+              </div>
+              <button onClick={handleBulkContractorAtt} className="flex items-center gap-1.5 px-3 py-2 bg-primary text-white dark:bg-accent dark:text-slate-950 rounded-xl font-bold text-[11px] cursor-pointer">
+                <Upload size={12} /> Bulk Mark Present
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 dark:bg-slate-900/50 text-[9px] text-slate-500 uppercase font-extrabold tracking-wider">
+                  <tr>{['ID', 'Contractor', 'Agency', 'Site', 'Check In', 'Check Out', 'Hours', 'Status', 'Action'].map(h => <th key={h} className="px-4 py-3">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {contractorWithAtt.map(c => (
+                    <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
+                      <td className="px-4 py-3 font-mono font-bold text-[10px]">{c.id}</td>
+                      <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{c.name}</td>
+                      <td className="px-4 py-3 text-slate-500">{c.agency}</td>
+                      <td className="px-4 py-3 text-slate-500">{c.site}</td>
+                      <td className="px-4 py-3">{c.checkIn}</td>
+                      <td className="px-4 py-3">{c.checkOut}</td>
+                      <td className="px-4 py-3 font-bold">{c.hours ? `${c.hours}h` : '--'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                          c.attStatus === 'Present' ? 'bg-emerald-100 text-emerald-700' :
+                          c.attStatus === 'Absent' ? 'bg-rose-100 text-rose-700' :
+                          'bg-slate-100 text-slate-500'
+                        }`}>{c.attStatus}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => {
+                          setContractorAttendance(prev => {
+                            const existing = prev.findIndex(a => a.empId === c.id && a.date === '2026-07-30');
+                            const record = { id: `CATT-EDIT-${c.id}`, empId: c.id, date: '2026-07-30', checkIn: '09:00 AM', checkOut: '06:00 PM', hoursWorked: 9, status: 'Present', site: c.site, markedBy: 'Manual Override' };
+                            if (existing !== -1) { const u = [...prev]; u[existing] = record; return u; }
+                            return [...prev, record];
+                          });
+                          toast.success(`Attendance corrected for ${c.name}`);
+                        }} className="text-primary dark:text-accent font-bold text-[10px] hover:underline cursor-pointer">Edit</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left/Middle: Calendar Search and Month View */}

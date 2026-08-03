@@ -37,6 +37,7 @@ export const AuthProvider = ({ children }) => {
   const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
   const [statutoryRole, setStatutoryRole] = useState(() => localStorage.getItem('hrms_statutory_role') || 'Admin');
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('hrms_view_mode') || 'role');
+  const [workforceMode, setWorkforceMode] = useState('fte'); // 'fte' | 'contractor'
 
   useEffect(() => {
     if (user) {
@@ -237,7 +238,9 @@ export const AuthProvider = ({ children }) => {
       logout,
       statutoryRole,
       viewMode,
-      toggleViewMode
+      toggleViewMode,
+      workforceMode,
+      setWorkforceMode
     }}>
       {children}
     </AuthContext.Provider>

@@ -8,7 +8,8 @@ import Footer from './Footer';
 import {
   LayoutDashboard, Building2, ShieldCheck, KeySquare, Calendar, History,
   Wallet, UserX, BarChart3, FileText, Settings, Users, UserPlus, Upload,
-  Clock, RefreshCw, Hourglass, DoorOpen
+  Clock, RefreshCw, Hourglass, DoorOpen, Briefcase, TrendingUp, CreditCard,
+  Shield, PiggyBank, GitBranch, Receipt
 } from 'lucide-react';
 
 function HorizontalNav() {
@@ -23,9 +24,10 @@ function HorizontalNav() {
       return [
         { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
         { label: 'Organization', icon: Building2, path: '/org/companies' },
+        { label: 'Org Tree', icon: GitBranch, path: '/org/orgtree' },
+        { label: 'Contractors', icon: Briefcase, path: '/contractors' },
         { label: 'Permissions', icon: ShieldCheck, path: '/admin/permissions' },
         { label: 'Credentials', icon: KeySquare, path: '/admin/credentials' },
-        { label: 'Roster & Leaves', icon: Calendar, path: '/admin/roster-leaves' },
         { label: 'Audit Logs', icon: History, path: '/admin/audit-logs' },
       ];
     }
@@ -35,8 +37,13 @@ function HorizontalNav() {
         { label: 'Payroll', icon: Wallet, path: '/payroll' },
         { label: 'Full & Final', icon: UserX, path: '/payroll/fnf' },
         { label: 'Cost Centers', icon: BarChart3, path: '/payroll/cost-centers' },
-        { label: 'CTC Lookup', icon: Wallet, path: '/policies/salary' },
-        { label: 'Policies', icon: FileText, path: '/policies/salary' },
+        { label: 'Salary Structure', icon: TrendingUp, path: '/salary-structure' },
+        { label: 'Income Tax', icon: Receipt, path: '/income-tax' },
+        { label: 'Banking', icon: CreditCard, path: '/banking' },
+        { label: 'Loans & Advances', icon: PiggyBank, path: '/loans' },
+        { label: 'Gratuity', icon: Shield, path: '/gratuity' },
+        { label: 'Contractors', icon: Briefcase, path: '/contractors' },
+        { label: 'Org Tree', icon: GitBranch, path: '/org/orgtree' },
         { label: 'Reports', icon: FileText, path: '/reports' },
         { label: 'Settings', icon: Settings, path: '/settings' },
       ];
@@ -45,9 +52,11 @@ function HorizontalNav() {
       return [
         { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
         { label: 'Directory', icon: Users, path: '/directory' },
+        { label: 'Contractors', icon: Briefcase, path: '/contractors' },
         { label: 'New Employee', icon: UserPlus, path: '/wizard' },
         { label: 'Import', icon: Upload, path: '/employees/import' },
-        { label: 'CTC Lookup', icon: Wallet, path: '/policies/salary' },
+        { label: 'Salary Structure', icon: TrendingUp, path: '/salary-structure' },
+        { label: 'Org Tree', icon: GitBranch, path: '/org/orgtree' },
         { label: 'Reports', icon: FileText, path: '/reports' },
         { label: 'Settings', icon: Settings, path: '/settings' },
       ];
@@ -60,7 +69,8 @@ function HorizontalNav() {
         { label: 'Holidays', icon: Calendar, path: '/holidays' },
         { label: 'Shifts', icon: RefreshCw, path: '/shifts' },
         { label: 'Overtime & Comp-Off', icon: Hourglass, path: '/overtime' },
-        { label: 'Policies', icon: FileText, path: '/policies/leave' },
+        { label: 'Contractors', icon: Briefcase, path: '/contractors' },
+        { label: 'Org Tree', icon: GitBranch, path: '/org/orgtree' },
         { label: 'Reports', icon: FileText, path: '/reports' },
         { label: 'Settings', icon: Settings, path: '/settings' },
       ];
@@ -75,7 +85,7 @@ function HorizontalNav() {
         { label: 'Shifts', icon: RefreshCw, path: '/shifts' },
         { label: 'Overtime & Comp-Off', icon: Hourglass, path: '/overtime' },
         { label: 'Payroll', icon: Wallet, path: '/payroll' },
-        { label: 'CTC Lookup', icon: Wallet, path: '/policies/salary' },
+        { label: 'Contractors', icon: Briefcase, path: '/contractors' },
         { label: 'Policies', icon: FileText, path: '/policies/leave' },
         { label: 'Reports', icon: FileText, path: '/reports' },
         { label: 'Settings', icon: Settings, path: '/settings' },
@@ -89,7 +99,12 @@ function HorizontalNav() {
         { label: 'Leaves & Time Off', icon: FileText, path: '/leaves' },
         { label: 'Overtime Logs', icon: Hourglass, path: '/overtime' },
         { label: 'Shift Schedule', icon: Calendar, path: '/shifts' },
+        { label: 'Salary Structure', icon: TrendingUp, path: '/salary-structure' },
         { label: 'Payslips', icon: Wallet, path: '/payroll' },
+        { label: 'IT Declaration', icon: Receipt, path: '/income-tax' },
+        { label: 'Loans & Advances', icon: PiggyBank, path: '/loans' },
+        { label: 'Gratuity', icon: Shield, path: '/gratuity' },
+        { label: 'Org Chart', icon: GitBranch, path: '/org/orgtree' },
         { label: 'Settings', icon: Settings, path: '/settings' },
       ];
     }
@@ -97,10 +112,12 @@ function HorizontalNav() {
       return [
         { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
         { label: 'My Team', icon: Users, path: '/directory' },
+        { label: 'Contractors', icon: Briefcase, path: '/contractors' },
         { label: 'Team Attendance', icon: Clock, path: '/attendance' },
         { label: 'Leave Approvals', icon: FileText, path: '/leaves' },
         { label: 'OT Approvals', icon: Hourglass, path: '/overtime' },
         { label: 'Shift Swap Approvals', icon: RefreshCw, path: '/shifts' },
+        { label: 'Org Chart', icon: GitBranch, path: '/org/orgtree' },
         { label: 'Reports', icon: FileText, path: '/reports' },
       ];
     }
