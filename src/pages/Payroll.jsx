@@ -810,7 +810,7 @@ export default function Payroll() {
                   <span className="text-slate-800 dark:text-slate-200">{gratuityResult.tenureYears} yrs</span>
                 </div>
                 <div className="flex justify-between border-b pb-1.5">
-                  <span className="text-slate-400">Eligible (>= 5 yrs):</span>
+                  <span className="text-slate-400">Eligible ({'>='} 5 yrs):</span>
                   <span className={`font-bold ${gratuityResult.eligible ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {gratuityResult.eligible ? 'YES' : 'NO'}
                   </span>

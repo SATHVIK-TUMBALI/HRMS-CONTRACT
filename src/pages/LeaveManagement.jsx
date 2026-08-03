@@ -354,8 +354,8 @@ export default function LeaveManagement() {
           )}
 
           <div className="flex flex-col text-left">
-            <label className="text-xs font-semibold text-slate-750 dark:text-slate-350 mb-1">
-              Attach Supporting Document {leaveType === 'Sick Leave' && requestedDays > 2 ? <span className="text-rose-500 font-bold">(Mandatory for >2 days)*</span> : '(Optional)'}
+            <label className="text-xs font-semibold text-slate-755 dark:text-slate-355 mb-1">
+              Attach Supporting Document {leaveType === 'Sick Leave' && requestedDays > 2 ? <span className="text-rose-500 font-bold">(Mandatory for {'>'}2 days)*</span> : '(Optional)'}
             </label>
             <input
               type="file"
