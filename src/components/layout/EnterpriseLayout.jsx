@@ -35,6 +35,7 @@ function HorizontalNav() {
         { label: 'Payroll', icon: Wallet, path: '/payroll' },
         { label: 'Full & Final', icon: UserX, path: '/payroll/fnf' },
         { label: 'Cost Centers', icon: BarChart3, path: '/payroll/cost-centers' },
+        { label: 'CTC Lookup', icon: Wallet, path: '/policies/salary' },
         { label: 'Policies', icon: FileText, path: '/policies/salary' },
         { label: 'Reports', icon: FileText, path: '/reports' },
         { label: 'Settings', icon: Settings, path: '/settings' },
@@ -46,6 +47,7 @@ function HorizontalNav() {
         { label: 'Directory', icon: Users, path: '/directory' },
         { label: 'New Employee', icon: UserPlus, path: '/wizard' },
         { label: 'Import', icon: Upload, path: '/employees/import' },
+        { label: 'CTC Lookup', icon: Wallet, path: '/policies/salary' },
         { label: 'Reports', icon: FileText, path: '/reports' },
         { label: 'Settings', icon: Settings, path: '/settings' },
       ];
@@ -73,6 +75,7 @@ function HorizontalNav() {
         { label: 'Shifts', icon: RefreshCw, path: '/shifts' },
         { label: 'Overtime & Comp-Off', icon: Hourglass, path: '/overtime' },
         { label: 'Payroll', icon: Wallet, path: '/payroll' },
+        { label: 'CTC Lookup', icon: Wallet, path: '/policies/salary' },
         { label: 'Policies', icon: FileText, path: '/policies/leave' },
         { label: 'Reports', icon: FileText, path: '/reports' },
         { label: 'Settings', icon: Settings, path: '/settings' },

@@ -85,6 +85,10 @@ export default function LeaveManagement() {
       toast.error('Insufficient leave balance. Please apply for Loss of Pay (LOP) instead.');
       return;
     }
+    if (leaveType === 'Sick Leave' && requestedDays > 2 && !attachedFile) {
+      toast.error('Medical certificate document attachment is mandatory for sick leave exceeding 2 days.');
+      return;
+    }
     applyLeave(leaveType, startDate, endDate, reason);
     setIsApplyModalOpen(false);
     // Reset fields
@@ -280,7 +284,7 @@ export default function LeaveManagement() {
             label="Select Leave Type"
             value={leaveType}
             onChange={(e) => setLeaveType(e.target.value)}
-            options={['Annual Leave', 'Sick Leave', 'Casual Leave', 'Loss of Pay (LOP)']}
+            options={['Annual Leave', 'Sick Leave', 'Casual Leave', 'Compensatory Off', 'Optional Holiday', 'Loss of Pay (LOP)']}
             required
           />
           <div className="grid grid-cols-2 gap-4">
@@ -350,7 +354,9 @@ export default function LeaveManagement() {
           )}
 
           <div className="flex flex-col text-left">
-            <label className="text-xs font-semibold text-slate-750 dark:text-slate-350 mb-1">Attach Supporting Document (Optional)</label>
+            <label className="text-xs font-semibold text-slate-750 dark:text-slate-350 mb-1">
+              Attach Supporting Document {leaveType === 'Sick Leave' && requestedDays > 2 ? <span className="text-rose-500 font-bold">(Mandatory for >2 days)*</span> : '(Optional)'}
+            </label>
             <input
               type="file"
               onChange={(e) => {
@@ -359,6 +365,7 @@ export default function LeaveManagement() {
                   toast.success(`Attached file: ${e.target.files[0].name}`);
                 }
               }}
+              required={leaveType === 'Sick Leave' && requestedDays > 2}
               className="text-xs text-slate-500 border border-slate-300 dark:border-slate-800 rounded-lg p-2 bg-white dark:bg-slate-900"
             />
           </div>

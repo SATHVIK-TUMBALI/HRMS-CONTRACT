@@ -115,13 +115,14 @@ export default function SettingsPanel() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { employees } = useHRMS();
+  const { employees, adminConfigs, setAdminConfigs } = useHRMS();
   const isAdmin = user?.role === 'Admin';
 
   // Active tab derived from pathname
   const [activeTab, setActiveTab] = useState('profile');
   const [orgSubTab, setOrgSubTab] = useState('companies');
   const [policySubTab, setPolicySubTab] = useState('leave');
+  const [salarySearchQuery, setSalarySearchQuery] = useState('');
 
   // Org Hierarchy State
   const [orgData, setOrgData] = useState({
@@ -229,6 +230,8 @@ export default function SettingsPanel() {
         setOrgSubTab('locations');
       } else if (path.includes('/org/designations')) {
         setOrgSubTab('designations');
+      } else if (path.includes('/org/orgtree')) {
+        setOrgSubTab('orgtree');
       }
     } else if (path.includes('/admin/permissions')) {
       setActiveTab('permissions');
@@ -470,7 +473,7 @@ export default function SettingsPanel() {
 
             {/* Inline Sub-Navigation for Org Registry Levels */}
             <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-2.5 overflow-x-auto">
-              {['companies', 'branches', 'departments', 'locations', 'designations'].map(tab => (
+              {['companies', 'branches', 'departments', 'locations', 'designations', 'orgtree'].map(tab => (
                 <button
                   key={tab}
                   onClick={() => {
@@ -483,189 +486,289 @@ export default function SettingsPanel() {
                       : 'bg-slate-50 text-slate-500 hover:bg-slate-100 dark:bg-slate-900/40 dark:text-slate-400 dark:hover:bg-slate-900'
                   }`}
                 >
-                  {tab}
+                  {tab === 'orgtree' ? 'Visual Org Tree' : tab}
                 </button>
               ))}
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Panel: Entity list hierarchy */}
-              <Card className="lg:col-span-1 p-4 space-y-4">
-                <div>
-                  <h4 className="font-bold text-primary dark:text-accent uppercase text-[10px] tracking-wider mb-2">
-                    {getSingularName(orgSubTab)} Registry List
-                  </h4>
-                  <p className="text-[10px] text-slate-400">Click to select and view node details</p>
+            {orgSubTab === 'orgtree' ? (
+              <Card className="p-6 space-y-6 overflow-x-auto">
+                <div className="text-center mb-6">
+                  <h4 className="font-extrabold text-sm text-slate-800 dark:text-white uppercase tracking-wider">Visual Organizational Hierarchy Tree</h4>
+                  <p className="text-[10px] text-slate-455 mt-0.5">Real-time reporting structures across branches and designations</p>
                 </div>
                 
-                <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
-                  {orgData[orgSubTab].map(node => {
-                    const isSelected = selectedNode && selectedNode.id === node.id;
-                    const nodeHeadcount = getEmployeesForNode(node, orgSubTab).length;
-                    return (
-                      <div
-                        key={node.id}
-                        onClick={() => setSelectedNode(node)}
-                        className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                          isSelected
-                            ? 'border-primary bg-primary/5 dark:border-accent dark:bg-slate-900'
-                            : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/30'
-                        }`}
-                      >
-                        <div className="text-left">
-                          <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs">{node.name}</span>
-                          <span className="text-[10px] text-slate-455">Code: {node.code} &bull; Headcount: <strong className="text-primary dark:text-accent">{nodeHeadcount}</strong></span>
+                {/* Level 0: Root Node */}
+                <div className="flex flex-col items-center">
+                  <div className="p-3.5 bg-primary text-white dark:bg-accent dark:text-slate-950 rounded-xl shadow-md border text-center w-60 flex flex-col items-center">
+                    <span className="text-[8px] uppercase tracking-wider font-extrabold bg-white/20 px-2 py-0.5 rounded-md mb-1">Corporate VP / Head</span>
+                    <strong className="text-xs">Alexander Wright</strong>
+                    <span className="text-[9.5px] opacity-90">Managing Director & VP</span>
+                    <span className="text-[9px] opacity-75 font-semibold mt-0.5 font-mono">New York HQ &bull; Executive</span>
+                  </div>
+                  
+                  {/* Vertical Connector */}
+                  <div className="h-6 w-0.5 bg-slate-300 dark:bg-slate-700 my-1"></div>
+                  <div className="w-2/3 border-t-2 border-slate-300 dark:border-slate-700 h-4"></div>
+
+                  {/* Level 1: Directors & Managers */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl justify-items-center">
+                    
+                    {/* HR Node */}
+                    <div className="flex flex-col items-center">
+                      <div className="p-3 bg-slate-50 dark:bg-slate-900 border rounded-xl w-56 text-center text-xs shadow-sm flex flex-col items-center">
+                        <span className="text-[8px] uppercase tracking-wider font-extrabold bg-blue-100 text-blue-700 dark:bg-blue-955/40 dark:text-blue-300 px-2 py-0.5 rounded-md mb-1">HR Administration</span>
+                        <strong className="text-slate-900 dark:text-slate-100">Rebecca Vance</strong>
+                        <span className="text-[10px] text-slate-500">Chief HR Officer</span>
+                        <span className="text-[9px] text-slate-400 mt-0.5">New York HQ &bull; HR</span>
+                      </div>
+                      
+                      {/* Sub-connector */}
+                      <div className="h-4 w-0.5 bg-slate-300 dark:bg-slate-700 my-1"></div>
+                      
+                      {/* HR direct reports */}
+                      <div className="space-y-2">
+                        <div className="p-2 bg-slate-100/50 dark:bg-slate-900/30 border border-dashed rounded-lg text-[11px] text-center w-48">
+                          <strong>Marcus Chen</strong>
+                          <span className="block text-[9.5px] text-slate-455">Safety & Access Lead</span>
                         </div>
-                        <Badge status={node.status} />
                       </div>
-                    );
-                  })}
-                  {orgData[orgSubTab].length === 0 && (
-                    <div className="py-8 text-center text-slate-455 font-semibold">
-                      No {orgSubTab} configured. Click Add New.
                     </div>
-                  )}
-                </div>
-              </Card>
 
-              {/* Right Panel: Detail form */}
-              <Card className="lg:col-span-2 p-5">
-                {selectedNode ? (
-                  <>
-                    <form onSubmit={handleSaveOrgNode} className="space-y-4">
-                      <div>
-                        <h4 className="font-bold text-slate-850 dark:text-white text-[11px] uppercase tracking-wider mb-3">
-                          {isAdmin ? 'View' : 'Edit'} {getSingularName(orgSubTab)}: <span className="text-primary dark:text-accent font-extrabold">{selectedNode.name}</span>
-                        </h4>
+                    {/* Engineering Node */}
+                    <div className="flex flex-col items-center">
+                      <div className="p-3 bg-slate-50 dark:bg-slate-900 border rounded-xl w-56 text-center text-xs shadow-sm flex flex-col items-center">
+                        <span className="text-[8px] uppercase tracking-wider font-extrabold bg-purple-100 text-purple-700 dark:bg-purple-955/40 dark:text-purple-300 px-2 py-0.5 rounded-md mb-1">Engineering Lead</span>
+                        <strong className="text-slate-900 dark:text-slate-100">David Miller</strong>
+                        <span className="text-[10px] text-slate-500">Engineering Manager</span>
+                        <span className="text-[9px] text-slate-400 mt-0.5">San Francisco Hub &bull; R&D</span>
                       </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                        <Input
-                          label="Entity Name"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          required
-                          disabled={isAdmin}
-                        />
-                        <Input
-                          label="System Code"
-                          value={editCode}
-                          onChange={(e) => setEditCode(e.target.value)}
-                          required
-                          disabled={isAdmin}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                        {['branches', 'departments', 'locations'].includes(orgSubTab) ? (
-                          <Select
-                            label="Parent Association Node"
-                            value={editParent}
-                            onChange={(e) => setEditParent(e.target.value)}
-                            options={[
-                              'None',
-                              ...(orgSubTab === 'branches' ? orgData.companies.map(c => c.name) : []),
-                              ...(orgSubTab === 'departments' ? orgData.branches.map(b => b.name) : []),
-                              ...(orgSubTab === 'locations' ? orgData.branches.map(b => b.name) : [])
-                            ]}
-                            disabled={isAdmin}
-                          />
-                        ) : (
-                          <Input label="Parent Association" value="None" disabled />
-                        )}
-
-                        <Select
-                          label="Active Status Flag"
-                          value={editStatus}
-                          onChange={(e) => setEditStatus(e.target.value)}
-                          options={['Active', 'Inactive']}
-                          disabled={isAdmin}
-                        />
-                      </div>
-
-                      {isAdmin ? (
-                        <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
-                          <div className="p-3 bg-amber-50 dark:bg-amber-955/20 text-amber-850 dark:text-amber-300 rounded-xl text-center font-semibold text-xs border border-amber-250/30">
-                            Read-Only View: As Administrator, you can view the organizational structure but edits are restricted to HR.
+                      
+                      {/* Sub-connector */}
+                      <div className="h-4 w-0.5 bg-slate-300 dark:bg-slate-700 my-1"></div>
+                      <div className="w-4/5 border-t border-slate-300 dark:border-slate-700 h-2"></div>
+                      
+                      {/* Engineering Direct Reports */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-2 bg-slate-100/50 dark:bg-slate-900/30 border rounded-lg text-[11px] text-center w-36">
+                          <strong>Sarah Jenkins</strong>
+                          <span className="block text-[9.5px] text-slate-455">UI/UX Lead</span>
+                          {/* Sarah's directs */}
+                          <div className="mt-1 border-t pt-1 border-slate-200 dark:border-slate-800 text-[8.5px] text-slate-400">
+                            Direct: Emily Watson
                           </div>
                         </div>
-                      ) : (
-                        <div className="border-t border-slate-100 dark:border-slate-800 pt-4 flex justify-between">
-                          <Button
-                            type="button"
-                            onClick={() => handleDeleteOrgNode(selectedNode.id)}
-                            variant="secondary"
-                            className="text-rose-650 border border-slate-200 hover:bg-rose-50"
-                          >
-                            Deactivate / Delete Node
-                          </Button>
-                          <Button type="submit" variant="primary">
-                            Save Registry Changes
-                          </Button>
+                        <div className="p-2 bg-slate-100/50 dark:bg-slate-900/30 border rounded-lg text-[11px] text-center w-36">
+                          <strong>Jonathan Carter</strong>
+                          <span className="block text-[9.5px] text-slate-455">Senior DevOps</span>
                         </div>
-                      )}
-                    </form>
-
-                    {/* Employee Headcount & Roster Directory */}
-                    <div className="border-t border-slate-150 dark:border-slate-800 pt-5 mt-6 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h5 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
-                            Node Headcount & Workforce
-                          </h5>
-                          <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
-                            List of active personnel assigned to this node hierarchy.
-                          </p>
-                        </div>
-                        <Badge status="Active">
-                          {nodeEmployees.length} {nodeEmployees.length === 1 ? 'Employee' : 'Employees'}
-                        </Badge>
                       </div>
-
-                      {nodeEmployees.length > 0 ? (
-                        <div className="overflow-x-auto max-h-[250px] overflow-y-auto border border-slate-150 dark:border-slate-800 rounded-xl">
-                          <table className="w-full text-left text-xs border-collapse">
-                            <thead className="bg-slate-50 dark:bg-slate-900/50 text-[9px] text-slate-450 uppercase font-bold tracking-wider border-b border-slate-150 dark:border-slate-800">
-                              <tr>
-                                <th className="px-4 py-2">Employee Name</th>
-                                <th className="px-4 py-2">ID</th>
-                                <th className="px-4 py-2">Department</th>
-                                <th className="px-4 py-2">Designation</th>
-                                <th className="px-4 py-2">Location</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
-                              {nodeEmployees.map(emp => (
-                                <tr key={emp.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
-                                  <td className="px-4 py-2.5 font-bold text-slate-950 dark:text-white flex items-center gap-2">
-                                    <div className="h-6 w-6 rounded-full bg-primary/10 text-primary dark:bg-accent/15 dark:text-accent flex items-center justify-center text-[10px] font-black uppercase">
-                                      {emp.name.split(' ').map(n => n[0]).join('')}
-                                    </div>
-                                    {emp.name}
-                                  </td>
-                                  <td className="px-4 py-2.5 font-mono text-[10px] font-bold">{emp.id}</td>
-                                  <td className="px-4 py-2.5 text-slate-500 font-semibold">{emp.department}</td>
-                                  <td className="px-4 py-2.5 text-slate-500">{emp.designation}</td>
-                                  <td className="px-4 py-2.5 text-slate-455 font-medium">{emp.location}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <div className="py-8 text-center text-slate-455 font-semibold border border-dashed rounded-xl bg-slate-50/30">
-                          No employees currently assigned to this node.
-                        </div>
-                      )}
                     </div>
-                  </>
-                ) : (
-                  <div className="py-24 text-center text-slate-455 font-semibold">
-                    Select a node from the registry list to edit its details.
+
+                    {/* Marketing Node */}
+                    <div className="flex flex-col items-center">
+                      <div className="p-3 bg-slate-50 dark:bg-slate-900 border rounded-xl w-56 text-center text-xs shadow-sm flex flex-col items-center">
+                        <span className="text-[8px] uppercase tracking-wider font-extrabold bg-amber-100 text-amber-700 dark:bg-amber-955/40 dark:text-amber-300 px-2 py-0.5 rounded-md mb-1">Growth & Ops</span>
+                        <strong className="text-slate-900 dark:text-slate-100">Michael Novak</strong>
+                        <span className="text-[10px] text-slate-500">Growth Director</span>
+                        <span className="text-[9px] text-slate-400 mt-0.5">New York HQ &bull; Marketing</span>
+                      </div>
+                      
+                      {/* Sub-connector */}
+                      <div className="h-4 w-0.5 bg-slate-300 dark:bg-slate-700 my-1"></div>
+                      
+                      {/* Marketing directs */}
+                      <div className="space-y-2">
+                        <div className="p-2 bg-slate-100/50 dark:bg-slate-900/30 border rounded-lg text-[11px] text-center w-48">
+                          <strong>Jessica Patel</strong>
+                          <span className="block text-[9.5px] text-slate-455">Sales Account Executive</span>
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
-                )}
+                </div>
               </Card>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Panel: Entity list hierarchy */}
+                <Card className="lg:col-span-1 p-4 space-y-4">
+                  <div>
+                    <h4 className="font-bold text-primary dark:text-accent uppercase text-[10px] tracking-wider mb-2">
+                      {getSingularName(orgSubTab)} Registry List
+                    </h4>
+                    <p className="text-[10px] text-slate-400">Click to select and view node details</p>
+                  </div>
+                  
+                  <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
+                    {orgData[orgSubTab].map(node => {
+                      const isSelected = selectedNode && selectedNode.id === node.id;
+                      const nodeHeadcount = getEmployeesForNode(node, orgSubTab).length;
+                      return (
+                        <div
+                          key={node.id}
+                          onClick={() => setSelectedNode(node)}
+                          className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                            isSelected
+                              ? 'border-primary bg-primary/5 dark:border-accent dark:bg-slate-900'
+                              : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/30'
+                          }`}
+                        >
+                          <div className="text-left">
+                            <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs">{node.name}</span>
+                            <span className="text-[10px] text-slate-455">Code: {node.code} &bull; Headcount: <strong className="text-primary dark:text-accent">{nodeHeadcount}</strong></span>
+                          </div>
+                          <Badge status={node.status} />
+                        </div>
+                      );
+                    })}
+                    {orgData[orgSubTab].length === 0 && (
+                      <div className="py-8 text-center text-slate-455 font-semibold">
+                        No {orgSubTab} configured. Click Add New.
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                {/* Right Panel: Detail form */}
+                <Card className="lg:col-span-2 p-5">
+                  {selectedNode ? (
+                    <>
+                      <form onSubmit={handleSaveOrgNode} className="space-y-4">
+                        <div>
+                          <h4 className="font-bold text-slate-850 dark:text-white text-[11px] uppercase tracking-wider mb-3">
+                            {isAdmin ? 'View' : 'Edit'} {getSingularName(orgSubTab)}: <span className="text-primary dark:text-accent font-extrabold">{selectedNode.name}</span>
+                          </h4>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                          <Input
+                            label="Entity Name"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            required
+                            disabled={isAdmin}
+                          />
+                          <Input
+                            label="System Code"
+                            value={editCode}
+                            onChange={(e) => setEditCode(e.target.value)}
+                            required
+                            disabled={isAdmin}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                          {['branches', 'departments', 'locations'].includes(orgSubTab) ? (
+                            <Select
+                              label="Parent Association Node"
+                              value={editParent}
+                              onChange={(e) => setEditParent(e.target.value)}
+                              options={[
+                                'None',
+                                ...(orgSubTab === 'branches' ? orgData.companies.map(c => c.name) : []),
+                                ...(orgSubTab === 'departments' ? orgData.branches.map(b => b.name) : []),
+                                ...(orgSubTab === 'locations' ? orgData.branches.map(b => b.name) : [])
+                              ]}
+                              disabled={isAdmin}
+                            />
+                          ) : (
+                            <Input label="Parent Association" value="None" disabled />
+                          )}
+
+                          <Select
+                            label="Active Status Flag"
+                            value={editStatus}
+                            onChange={(e) => setEditStatus(e.target.value)}
+                            options={['Active', 'Inactive']}
+                            disabled={isAdmin}
+                          />
+                        </div>
+
+                        {isAdmin ? (
+                          <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+                            <div className="p-3 bg-amber-50 dark:bg-amber-955/20 text-amber-850 dark:text-amber-300 rounded-xl text-center font-semibold text-xs border border-amber-250/30">
+                              Read-Only View: As Administrator, you can view the organizational structure but edits are restricted to HR.
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="border-t border-slate-100 dark:border-slate-800 pt-4 flex justify-between">
+                            <Button
+                              type="button"
+                              onClick={() => handleDeleteOrgNode(selectedNode.id)}
+                              variant="secondary"
+                              className="text-rose-650 border border-slate-200 hover:bg-rose-50"
+                            >
+                              Deactivate / Delete Node
+                            </Button>
+                            <Button type="submit" variant="primary">
+                              Save Registry Changes
+                            </Button>
+                          </div>
+                        )}
+                      </form>
+
+                      {/* Employee Headcount & Roster Directory */}
+                      <div className="border-t border-slate-150 dark:border-slate-800 pt-5 mt-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h5 className="font-bold text-slate-800 dark:text-white text-xs uppercase tracking-wider">
+                              Node Headcount & Workforce
+                            </h5>
+                            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                              List of active personnel assigned to this node hierarchy.
+                            </p>
+                          </div>
+                          <Badge status="Active">
+                            {nodeEmployees.length} {nodeEmployees.length === 1 ? 'Employee' : 'Employees'}
+                          </Badge>
+                        </div>
+
+                        {nodeEmployees.length > 0 ? (
+                          <div className="overflow-x-auto max-h-[250px] overflow-y-auto border border-slate-155 dark:border-slate-800 rounded-xl">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead className="bg-slate-50 dark:bg-slate-900/50 text-[9px] text-slate-450 uppercase font-bold tracking-wider border-b border-slate-150 dark:border-slate-800">
+                                <tr>
+                                  <th className="px-4 py-2">Employee Name</th>
+                                  <th className="px-4 py-2">ID</th>
+                                  <th className="px-4 py-2">Department</th>
+                                  <th className="px-4 py-2">Designation</th>
+                                  <th className="px-4 py-2">Location</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
+                                {nodeEmployees.map(emp => (
+                                  <tr key={emp.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
+                                    <td className="px-4 py-2.5 font-bold text-slate-955 dark:text-white flex items-center gap-2">
+                                      <div className="h-6 w-6 rounded-full bg-primary/10 text-primary dark:bg-accent/15 dark:text-accent flex items-center justify-center text-[10px] font-black uppercase">
+                                        {emp.name.split(' ').map(n => n[0]).join('')}
+                                      </div>
+                                      {emp.name}
+                                    </td>
+                                    <td className="px-4 py-2.5 font-mono text-[10px] font-bold">{emp.id}</td>
+                                    <td className="px-4 py-2.5 text-slate-550 font-semibold">{emp.department}</td>
+                                    <td className="px-4 py-2.5 text-slate-500">{emp.designation}</td>
+                                    <td className="px-4 py-2.5 text-slate-455 font-medium">{emp.location}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="py-8 text-center text-slate-455 font-semibold border border-dashed rounded-xl bg-slate-50/30">
+                            No employees currently assigned to this node.
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="py-24 text-center text-slate-455 font-semibold">
+                      Select a node from the registry list to edit its details.
+                    </div>
+                  )}
+                </Card>
+              </div>
+            )}
 
             {/* Add Node Modal */}
             <Modal isOpen={isAddOrgModalOpen} onClose={() => setIsAddOrgModalOpen(false)} title={`Create Statutory ${getSingularName(orgSubTab)}`}>
@@ -749,6 +852,96 @@ export default function SettingsPanel() {
                   ))}
                 </tbody>
               </table>
+            </Card>
+
+            {/* Admin Configurator Card */}
+            <Card className="p-5 mt-6 space-y-4">
+              <div>
+                <h3 className="font-bold text-sm text-slate-850 dark:text-white">Global Module Configurator</h3>
+                <span className="text-[10px] text-slate-400 font-semibold">Enable or disable core HCM modules across all portals (updates adminConfigs)</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs font-semibold">
+                <div className="p-4 bg-slate-50 dark:bg-slate-900 border rounded-xl flex items-center justify-between">
+                  <div>
+                    <span className="block text-slate-800 dark:text-slate-200">Loans & Advances</span>
+                    <span className="block text-[9.5px] font-normal text-slate-455">Recover EMIs from payroll</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={adminConfigs?.enableLoans}
+                      onChange={(e) => setAdminConfigs(prev => ({ ...prev, enableLoans: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+
+                <div className="p-4 bg-slate-50 dark:bg-slate-900 border rounded-xl flex items-center justify-between">
+                  <div>
+                    <span className="block text-slate-800 dark:text-slate-200">Shift Swaps Flow</span>
+                    <span className="block text-[9.5px] font-normal text-slate-455">Multi-stage employee shift swaps</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={adminConfigs?.enableShiftSwaps}
+                      onChange={(e) => setAdminConfigs(prev => ({ ...prev, enableShiftSwaps: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+
+                <div className="p-4 bg-slate-50 dark:bg-slate-900 border rounded-xl flex items-center justify-between">
+                  <div>
+                    <span className="block text-slate-800 dark:text-slate-200">Tax Proofs & Declaration</span>
+                    <span className="block text-[9.5px] font-normal text-slate-455">IT declarations & Form 16 upload</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={adminConfigs?.enableTaxProofs}
+                      onChange={(e) => setAdminConfigs(prev => ({ ...prev, enableTaxProofs: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+
+                <div className="p-4 bg-slate-50 dark:bg-slate-900 border rounded-xl flex items-center justify-between">
+                  <div>
+                    <span className="block text-slate-800 dark:text-slate-200">Off-Cycle Disbursements</span>
+                    <span className="block text-[9.5px] font-normal text-slate-455">Settlements, incentives & bonuses</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={adminConfigs?.enableOffcycle}
+                      onChange={(e) => setAdminConfigs(prev => ({ ...prev, enableOffcycle: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+
+                <div className="p-4 bg-slate-50 dark:bg-slate-900 border rounded-xl flex items-center justify-between">
+                  <div>
+                    <span className="block text-slate-800 dark:text-slate-200">Gratuity Accrual Rules</span>
+                    <span className="block text-[9.5px] font-normal text-slate-455">Payment of Gratuity Act check</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={adminConfigs?.enableGratuity}
+                      onChange={(e) => setAdminConfigs(prev => ({ ...prev, enableGratuity: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+              </div>
             </Card>
           </div>
         );
@@ -954,52 +1147,112 @@ export default function SettingsPanel() {
               </Card>
             )}
 
-            {policySubTab === 'salary' && (
-              <div className="space-y-6 animate-fade-in">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h4 className="font-bold text-slate-800 dark:text-white text-sm">Statutory Salary Components</h4>
-                    <p className="text-slate-450 text-[11px] font-medium">Define structures for gross salary calculation, benefits, and tax deductions.</p>
-                  </div>
-                  <Button onClick={() => toast.success('Salary component builder simulation active.')} variant="primary" icon={Plus}>
-                    Add Component
-                  </Button>
-                </div>
+             {policySubTab === 'salary' && (
+               <div className="space-y-6 animate-fade-in text-xs">
+                 <div className="flex justify-between items-center">
+                   <div>
+                     <h4 className="font-bold text-slate-800 dark:text-white text-sm">Statutory Salary Components & CTC Lookup</h4>
+                     <p className="text-slate-450 text-[11px] font-medium">Define structures for gross salary calculation, benefits, and look up individual CTC structures.</p>
+                   </div>
+                   <Button onClick={() => toast.success('Salary component builder simulation active.')} variant="primary" icon={Plus}>
+                     Add Component
+                   </Button>
+                 </div>
 
-                <Card className="overflow-hidden">
-                  <table className="w-full border-collapse text-left text-xs">
-                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-[10px] text-slate-450 uppercase font-bold tracking-wider">
-                      <tr>
-                        <th className="px-6 py-3">Component Name</th>
-                        <th className="px-6 py-3">Type</th>
-                        <th className="px-6 py-3">Calculation Basis</th>
-                        <th className="px-6 py-3">Value / Formula</th>
-                        <th className="px-6 py-3">Taxable</th>
-                        <th className="px-6 py-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-650 dark:text-slate-400">
-                      {[
-                        { name: 'Basic Salary', type: 'Earning', basis: 'Percentage of CTC', value: '45%', tax: 'Yes', status: 'Active' },
-                        { name: 'House Rent Allowance (HRA)', type: 'Earning', basis: 'Percentage of Basic', value: '50%', tax: 'Partial', status: 'Active' },
-                        { name: 'Provident Fund (PF)', type: 'Deduction', basis: 'Percentage of Basic', value: '12%', tax: 'Exempt', status: 'Active' },
-                        { name: 'Special Allowance', type: 'Earning', basis: 'Fixed / Balancing', value: 'Variable', tax: 'Yes', status: 'Active' },
-                        { name: 'Professional Tax (PT)', type: 'Deduction', basis: 'Slab-based', value: 'Up to $20/mo', tax: 'Exempt', status: 'Active' }
-                      ].map((comp, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10">
-                          <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{comp.name}</td>
-                          <td className="px-6 py-4 font-semibold">{comp.type}</td>
-                          <td className="px-6 py-4 text-slate-500">{comp.basis}</td>
-                          <td className="px-6 py-4 font-mono">{comp.value}</td>
-                          <td className="px-6 py-4">{comp.tax}</td>
-                          <td className="px-6 py-4"><Badge status="Active">{comp.status}</Badge></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Card>
-              </div>
-            )}
+                 {/* Employee CTC Structure Search/Lookup Panel */}
+                 <Card className="p-5 space-y-4 border-l-4 border-l-primary">
+                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                     <div>
+                       <strong className="text-xs text-slate-850 dark:text-white block font-extrabold text-[12px]">Personnel CTC Breakdown Lookup</strong>
+                       <span className="text-[10px] text-slate-400 font-semibold">Exclusively available for Recruiter HR and Finance HR</span>
+                     </div>
+                     
+                     <div className="flex gap-2 w-full sm:w-auto">
+                       <select
+                         value={salarySearchQuery}
+                         onChange={(e) => setSalarySearchQuery(e.target.value)}
+                         className="text-xs py-1.5 px-3 border dark:border-slate-800 rounded bg-white dark:bg-slate-950 dark:text-slate-350 w-full sm:w-60 focus:ring-2 focus:ring-primary/20 focus:outline-hidden"
+                       >
+                         <option value="">-- Choose Employee --</option>
+                         {employees.map(e => (
+                           <option key={e.id} value={e.id}>{e.name} ({e.id}) - {e.designation}</option>
+                         ))}
+                       </select>
+                     </div>
+                   </div>
+
+                   {salarySearchQuery && (() => {
+                     const emp = employees.find(e => e.id === salarySearchQuery);
+                     if (!emp) return null;
+                     const empGross = emp.salary ? (emp.salary / 12) : 5000;
+                     const empPf = empGross * 0.12;
+                     const empTax = empGross * 0.15;
+                     const empNet = empGross - empPf - empTax;
+
+                     return (
+                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-semibold text-slate-700 dark:text-slate-350">
+                         <div className="space-y-1">
+                           <span className="block text-[8.5px] uppercase font-bold text-slate-400">Employee Details</span>
+                           <strong className="text-slate-900 dark:text-white text-xs block">{emp.name}</strong>
+                           <span className="block text-[10px] text-slate-450 font-normal">{emp.designation} ({emp.id})</span>
+                         </div>
+                         
+                         <div className="space-y-1">
+                           <span className="block text-[8.5px] uppercase font-bold text-slate-400">Annual CTC Package</span>
+                           <strong className="text-primary dark:text-accent text-xs block">₹{emp.salary.toLocaleString()}</strong>
+                           <span className="block text-[9.5px] text-slate-455 font-normal">Monthly Gross: ₹{Math.round(empGross).toLocaleString()}</span>
+                         </div>
+
+                         <div className="space-y-1">
+                           <span className="block text-[8.5px] uppercase font-bold text-slate-400">Monthly Deductions</span>
+                           <span className="block text-rose-600">PF Contribution (12%): -₹{Math.round(empPf).toLocaleString()}</span>
+                           <span className="block text-rose-600">Tax Withholding (15%): -₹{Math.round(empTax).toLocaleString()}</span>
+                         </div>
+
+                         <div className="space-y-1">
+                           <span className="block text-[8.5px] uppercase font-bold text-slate-400">Monthly Net Transfer</span>
+                           <strong className="text-emerald-600 text-xs block">₹{Math.round(empNet).toLocaleString()}</strong>
+                           <span className="block text-[9.5px] text-slate-455 font-normal">Disbursed via bank transfer</span>
+                         </div>
+                       </div>
+                     );
+                   })()}
+                 </Card>
+
+                 <Card className="overflow-hidden">
+                   <table className="w-full border-collapse text-left text-xs">
+                     <thead className="bg-slate-50 dark:bg-slate-900/50 text-[10px] text-slate-450 uppercase font-bold tracking-wider">
+                       <tr>
+                         <th className="px-6 py-3">Component Name</th>
+                         <th className="px-6 py-3">Type</th>
+                         <th className="px-6 py-3">Calculation Basis</th>
+                         <th className="px-6 py-3">Value / Formula</th>
+                         <th className="px-6 py-3">Taxable</th>
+                         <th className="px-6 py-3">Status</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-650 dark:text-slate-400">
+                       {[
+                         { name: 'Basic Salary', type: 'Earning', basis: 'Percentage of CTC', value: '45%', tax: 'Yes', status: 'Active' },
+                         { name: 'House Rent Allowance (HRA)', type: 'Earning', basis: 'Percentage of Basic', value: '50%', tax: 'Partial', status: 'Active' },
+                         { name: 'Provident Fund (PF)', type: 'Deduction', basis: 'Percentage of Basic', value: '12%', tax: 'Exempt', status: 'Active' },
+                         { name: 'Special Allowance', type: 'Earning', basis: 'Fixed / Balancing', value: 'Variable', tax: 'Yes', status: 'Active' },
+                         { name: 'Professional Tax (PT)', type: 'Deduction', basis: 'Slab-based', value: 'Up to ₹1,500/mo', tax: 'Exempt', status: 'Active' }
+                       ].map((comp, idx) => (
+                         <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10">
+                           <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{comp.name}</td>
+                           <td className="px-6 py-4 font-semibold">{comp.type}</td>
+                           <td className="px-6 py-4 text-slate-500">{comp.basis}</td>
+                           <td className="px-6 py-4 font-mono">{comp.value}</td>
+                           <td className="px-6 py-4">{comp.tax}</td>
+                           <td className="px-6 py-4"><Badge status="Active">{comp.status}</Badge></td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 </Card>
+               </div>
+             )}
           </div>
         );
 

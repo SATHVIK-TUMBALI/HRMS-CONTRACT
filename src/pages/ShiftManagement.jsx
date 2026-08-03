@@ -26,11 +26,34 @@ export default function ShiftManagement() {
 
   // Filters Swaps
   const selfSwaps = shiftSwaps.filter(s => s.empId === user.employeeId);
-  const pendingSwaps = shiftSwaps.filter(s => s.status === 'Pending');
   const allSwaps = shiftSwaps;
 
-  // Other employees to swap with
-  const eligibleEmployees = employees.filter(e => e.id !== user.employeeId && e.status === 'Active');
+  // Other employees to swap with - FILTER to show only employees from other shifts!
+  const eligibleEmployees = employees.filter(e => {
+    if (e.id === user.employeeId) return false;
+    if (e.status !== 'Active') return false;
+
+    // Filter out employees in the same shift as currentShift
+    const colShift = e.shift || '';
+    if (currentShift === 'General Shift') {
+      return !colShift.startsWith('General');
+    } else if (currentShift === 'Morning Shift') {
+      return !colShift.startsWith('Morning');
+    } else if (currentShift === 'Evening Shift') {
+      return !colShift.startsWith('Evening');
+    } else if (currentShift === 'Night Shift') {
+      return !colShift.startsWith('Night');
+    }
+    return true;
+  });
+
+  const getShiftCode = (name) => {
+    if (name === 'General Shift') return 'GS';
+    if (name === 'Morning Shift') return 'MS';
+    if (name === 'Evening Shift') return 'ES';
+    if (name === 'Night Shift') return 'NS';
+    return 'GS';
+  };
 
   const handleSwapSubmit = (e) => {
     e.preventDefault();
@@ -38,16 +61,46 @@ export default function ShiftManagement() {
       toast.error('Please fill in all swap details.');
       return;
     }
-    requestShiftSwap(swapDate, currentShift, targetShift, swapEmployee);
+    const colleague = employees.find(emp => emp.name === swapEmployee);
+    if (!colleague) {
+      toast.error('Colleague not found.');
+      return;
+    }
+    
+    requestShiftSwap(
+      swapDate, 
+      currentShift, 
+      targetShift, 
+      swapEmployee, 
+      new Date(swapDate).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase(),
+      colleague.id,
+      getShiftCode(currentShift),
+      getShiftCode(targetShift)
+    );
     setIsSwapModalOpen(false);
     setSwapDate('');
     setSwapEmployee('');
   };
 
-  const handleSwapAction = (id, status) => {
-    updateShiftSwapStatus(id, status);
-    toast.success(`Swap request ${status.toLowerCase()}.`);
+  // Multi-stage approval mapping: My request --> other employee --> target manager --> origin manager
+  const getPendingActionSwaps = () => {
+    return shiftSwaps.filter(s => {
+      if (s.status === 'Pending Employee') {
+        return s.requestWith === user.name;
+      }
+      if (s.status === 'Pending Target Manager') {
+        const targetEmp = employees.find(e => e.name === s.requestWith);
+        return targetEmp && targetEmp.manager === user.name;
+      }
+      if (s.status === 'Pending Origin Manager') {
+        const originEmp = employees.find(e => e.id === s.empId);
+        return originEmp && originEmp.manager === user.name;
+      }
+      return false;
+    });
   };
+
+  const activePendingSwaps = getPendingActionSwaps();
 
   const getShiftFullLabel = (code) => {
     const map = {
@@ -101,36 +154,49 @@ export default function ShiftManagement() {
         </div>
       </Card>
 
-      {/* Pending approvals inbox (Manager / HR) */}
-      {!isEmployee && (
-        <Card className="p-5">
+      {/* Multi-stage shift swap approvals queue */}
+      {activePendingSwaps.length > 0 && (
+        <Card className="p-5 border-l-4 border-l-amber-500 bg-amber-50/10">
           <div className="mb-4">
-            <h3 className="font-bold text-sm text-slate-800 dark:text-white">Shift Swap Approvals Inbox</h3>
-            <span className="text-[10px] text-slate-400 font-semibold">Approve roster swaps requested by team members</span>
+            <h3 className="font-extrabold text-sm text-slate-800 dark:text-white">Outstanding Shift Swap Actions</h3>
+            <span className="text-[10px] text-slate-400 font-semibold">Review and action multi-stage roster swap requests</span>
           </div>
-          {pendingSwaps.length === 0 ? (
-            <div className="py-8 text-center text-xs text-slate-400 font-semibold border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
-              No shift swap requests require action.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {pendingSwaps.map(req => (
-                <div key={req.id} className="p-4 border border-slate-150 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-xs">
-                  <div className="text-left space-y-1">
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{req.empName} requests swap:</span>
-                    <p className="text-slate-600 dark:text-slate-400">
-                      Roster Date: <strong className="font-bold">{req.shiftDate}</strong>
-                    </p>
-                    <p className="text-slate-500">
-                      Current Shift: {req.currentShift} &rarr; Target Shift: {req.targetShift}
-                    </p>
-                    <p className="text-[10px] text-slate-400 font-semibold">
-                      Proposed swap partner: {req.requestWith}
-                    </p>
+          <div className="space-y-3">
+            {activePendingSwaps.map(req => {
+              const originEmp = employees.find(e => e.id === req.empId);
+              const targetEmp = employees.find(e => e.name === req.requestWith);
+              const roleTag = req.status === 'Pending Employee' ? 'TargetEmployee' :
+                              req.status === 'Pending Target Manager' ? 'TargetManager' : 'OriginManager';
+
+              return (
+                <div key={req.id} className="p-4 border border-amber-200/50 dark:border-amber-900/30 rounded-xl bg-white dark:bg-slate-900/40 text-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="text-left space-y-1 w-full">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-1.5 py-0.2 rounded-full text-[8.5px] font-extrabold uppercase bg-amber-50 text-amber-700 border border-amber-250 dark:bg-amber-950/20 dark:text-amber-400">Next Action: {req.status}</span>
+                      <span className="font-bold text-slate-450">Swap ID: {req.id}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-2.5 bg-slate-50 dark:bg-slate-900 rounded-lg border mt-1.5 font-medium">
+                      <div>
+                        <span className="block text-[8.5px] uppercase font-bold text-slate-400">Requesting Employee</span>
+                        <strong className="text-slate-850 dark:text-slate-200">{originEmp ? originEmp.name : req.empName}</strong>
+                        <span className="block text-[10px] text-slate-400">{originEmp ? originEmp.department : 'Operations'} &bull; {req.currentShift}</span>
+                      </div>
+                      <div className="border-l pl-3 border-slate-200/60 dark:border-slate-800">
+                        <span className="block text-[8.5px] uppercase font-bold text-slate-400">Proposed Swap Partner</span>
+                        <strong className="text-slate-850 dark:text-slate-200">{targetEmp ? targetEmp.name : req.requestWith}</strong>
+                        <span className="block text-[10px] text-slate-400">{targetEmp ? targetEmp.department : 'Operations'} &bull; {req.targetShift}</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-bold mt-1">Roster Swap Date: {req.shiftDate}</p>
                   </div>
-                  <div className="flex gap-2">
+
+                  <div className="flex gap-2 shrink-0">
                     <Button
-                      onClick={() => handleSwapAction(req.id, 'Rejected')}
+                      onClick={() => {
+                        updateShiftSwapStatus(req.id, 'reject', roleTag);
+                        toast.success('Swap request declined.');
+                      }}
                       variant="secondary"
                       size="sm"
                       icon={X}
@@ -138,19 +204,22 @@ export default function ShiftManagement() {
                       Reject
                     </Button>
                     <Button
-                      onClick={() => handleSwapAction(req.id, 'Approved')}
+                      onClick={() => {
+                        updateShiftSwapStatus(req.id, 'approve', roleTag);
+                        toast.success('Swap request approved.');
+                      }}
                       variant="primary"
                       size="sm"
                       className="bg-emerald-600 hover:bg-emerald-700 text-white"
                       icon={Check}
                     >
-                      Approve
+                      {req.status === 'Pending Employee' ? 'Accept' : 'Approve'}
                     </Button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
         </Card>
       )}
 
@@ -220,8 +289,8 @@ export default function ShiftManagement() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
               {(isEmployee ? selfSwaps : allSwaps).length === 0 ? (
                 <tr>
-                  <td colSpan={isEmployee ? 5 : 6} className="px-4 py-8 text-center text-slate-450 font-semibold">
-                    No roster swaps requested.
+                  <td colSpan={isEmployee ? 5 : 6} className="px-4 py-8 text-center text-slate-455 font-semibold">
+                    No roster swaps recorded in log.
                   </td>
                 </tr>
               ) : (
@@ -280,10 +349,10 @@ export default function ShiftManagement() {
             />
           </div>
           <Select
-            label="Swap Shift With (Eligible Colleague)"
+            label="Swap Shift With (Eligible Colleague on Other Shifts)"
             value={swapEmployee}
             onChange={(e) => setSwapEmployee(e.target.value)}
-            options={['', ...eligibleEmployees.map(e => ({ value: e.name, label: `${e.name} (${e.department})` }))]}
+            options={['', ...eligibleEmployees.map(e => ({ value: e.name, label: `${e.name} (${e.shift ? e.shift.split(' ')[0] : 'Other'} Shift)` }))]}
             required
           />
           <div className="border-t border-slate-100 dark:border-slate-800 pt-4 flex justify-end gap-2">
