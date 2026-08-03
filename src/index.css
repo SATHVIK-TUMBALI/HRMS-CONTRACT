@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary: #1F3A5F;
+  --color-accent: #2E75B6;
+  --color-success: #2E7D32;
+  --color-warning: #B8860B;
+  --color-danger: #B3261E;
+  --color-bg-custom: #F8FAFC;
+  --color-card-custom: #FFFFFF;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-custom);
+  color: #1E293B;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+html.dark body {
+  background-color: #0F172A;
+  color: #F8FAFC;
+}
+
+/* Custom Scrollbar for sleek enterprise look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Datepicker tweaks to fit design system */
+.react-datepicker-wrapper {
+  width: 100%;
+}
+.react-datepicker {
+  font-family: var(--font-sans) !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+.react-datepicker__header {
+  background-color: #F8FAFC !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+  border-top-left-radius: 12px !important;
+  border-top-right-radius: 12px !important;
+}
+.react-datepicker__day--selected {
+  background-color: #1F3A5F !important;
+  border-radius: 6px !important;
+}
+.react-datepicker__day--keyboard-selected {
+  background-color: rgba(46, 117, 182, 0.1) !important;
+  color: #1F3A5F !important;
+}
